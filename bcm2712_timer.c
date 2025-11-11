@@ -40,7 +40,7 @@ void timerWait(uint32_t ms)
 
 
 static uint64_t ticks;
-void vSetup1msTickInterrupt(void)
+void vSetupTickInterrupt(void)
 {
     uint32_t frq = SYSREG_READ(CNTFRQ_EL0);
     ticks = frq / 1000;
@@ -51,12 +51,12 @@ void vSetup1msTickInterrupt(void)
 
     uint32_t target = GICD_ITARGETSR(CNTP_IRQ30);
     target &= ~(0xFF << (CNTP_IRQ30 % 4 * 8));
-    target |= (1 << (CNTP_IRQ30 % 4 * 8));
+    target |= (0x01 << (CNTP_IRQ30 % 4 * 8));
     GICD_ITARGETSR(CNTP_IRQ30) = target;
 
     uint32_t pri = GICD_IPRIORITYR(CNTP_IRQ30);
     pri &= ~(0xFFu << ((CNTP_IRQ30 % 4) * 8));
-    pri |= (0x10u << ((CNTP_IRQ30 % 4) * 8));
+    pri |= ((14 << 4) << ((CNTP_IRQ30 % 4) * 8));
     GICD_IPRIORITYR(CNTP_IRQ30) = pri;
     GICD_CTLR = 0x01;
 
@@ -78,10 +78,10 @@ void vSetup1msTickInterrupt(void)
     cntp_ctl &= ~(1U << 2);
     SYSREG_WRITE(CNTP_CTL_EL0, cntp_ctl);
 
-    __asm__ __volatile__("msr daifclr, #2");
+    /* __asm__ volatile("msr daifclr, #2"); */
 }
 
-void vSetup1msInterruptNextTick(void)
+void vResetTickInterrupt(void)
 {
     uint64_t current_cval = SYSREG_READ(CNTP_CVAL_EL0);
     SYSREG_WRITE(CNTP_CVAL_EL0, current_cval + ticks);

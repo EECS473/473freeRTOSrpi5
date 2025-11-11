@@ -11,8 +11,8 @@ void timerInit(void);
 
 void timerWait(uint32_t ms);
 
-void vSetup1msTickInterrupt(void);
+void vSetupTickInterrupt(void);
 
-void vSetup1msInterruptNextTick(void);
+void vResetTickInterrupt(void);
 
 #endif

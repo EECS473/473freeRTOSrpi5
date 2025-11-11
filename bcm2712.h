@@ -20,7 +20,7 @@
 #define GICD_ISENABLER(n) (*(volatile uint32_t*)(GICD_BASE + 0x0100 + (n) / 32 * 4))
 #define GICD_ISPENDR(n) (*(volatile uint32_t*)(GICD_BASE + 0x200 + (n) / 32 * 4))
 #define GICD_IPRIORITYR(n) (*(volatile uint32_t*)(GICD_BASE + 0x0400 + (n) / 4 * 4))
-#define GICD_ITARGETSR(n) (*(volatile uint8_t*)(GICD_BASE + 0x0800 + (n) / 4 * 4))
+#define GICD_ITARGETSR(n) (*(volatile uint32_t*)(GICD_BASE + 0x0800 + (n) / 4 * 4))
 
 #define GICC_BASE (BCM2712_PER_BASE + 0x7FFFA000ULL)
 #define GICC_CTLR (*(volatile uint32_t*)(GICC_BASE + 0x0000))

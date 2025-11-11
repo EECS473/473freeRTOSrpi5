@@ -312,7 +312,6 @@ BaseType_t xPortStartScheduler( void )
     ulAPSR &= portAPSR_MODE_BITS_MASK;
 
     #if defined( GUEST )
-    #warning "Building for execution as a guest under XEN. THIS IS NOT A FULLY TESTED PATH."
         configASSERT( ulAPSR == portEL1 );
 
         if( ulAPSR == portEL1 )
@@ -522,9 +521,3 @@ UBaseType_t uxPortSetInterruptMask( void )
 
 #endif /* configASSERT_DEFINED */
 /*-----------------------------------------------------------*/
-
-void vSetupTickInterrupt( void )
-{
-    extern void FreeRTOS_Tick_Handler( void );
-
-}

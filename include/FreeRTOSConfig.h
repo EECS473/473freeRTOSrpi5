@@ -75,7 +75,7 @@
 
 /* configTICK_RATE_HZ sets frequency of the tick interrupt in Hz, normally
  * calculated from the configCPU_CLOCK_HZ value. */
-#define configTICK_RATE_HZ                         100
+#define configTICK_RATE_HZ                         1000
 
 /* Set configUSE_PREEMPTION to 1 to use pre-emptive scheduling.  Set
  * configUSE_PREEMPTION to 0 to use co-operative scheduling.
@@ -320,7 +320,7 @@
 
 /* Another name for configMAX_SYSCALL_INTERRUPT_PRIORITY - the name used depends
  * on the FreeRTOS port. */
-#define configMAX_API_CALL_INTERRUPT_PRIORITY    48
+#define configMAX_API_CALL_INTERRUPT_PRIORITY    9
 
 /******************************************************************************/
 /* Hook and callback function related definitions. ****************************/
@@ -625,11 +625,20 @@
 #define configUSE_APPLICATION_TASK_TAG         0
 
 
-#define configUNIQUE_INTERRUPT_PRIORITIES 64
-#define configINTERRUPT_CONTROLLER_BASE_ADDRESS 0x2C000000
-#define configINTERRUPT_CONTROLLER_CPU_INTERFACE_OFFSET 0x8000
+/* Write 0xFF to GICD Interrupt Priority Registers, and read back as 0xF0, step is 16, 16 priority levels */
+#define configUNIQUE_INTERRUPT_PRIORITIES 16
+
+/* Base address could be found in bcm2712.dtsi */
+#define configINTERRUPT_CONTROLLER_BASE_ADDRESS 0x107FFF9000ULL
+
+/* Ref: ARM ®  Generic Interrupt Controller Architecture version 2.0 */
+#define configINTERRUPT_CONTROLLER_CPU_INTERFACE_OFFSET 0x1000
+
 void vSetupTickInterrupt( void );
 #define configSETUP_TICK_INTERRUPT() vSetupTickInterrupt()
+
+void vResetTickInterrupt(void);
+#define configCLEAR_TICK_INTERRUPT() vResetTickInterrupt()
 
 /* Set the following INCLUDE_* constants to 1 to incldue the named API function,
  * or 0 to exclude the named API function.  Most linkers will remove unused

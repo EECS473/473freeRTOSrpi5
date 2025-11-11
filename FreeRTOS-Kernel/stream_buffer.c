@@ -584,7 +584,9 @@ void vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer )
     {
         /* The structure and buffer were not allocated dynamically and cannot be
          * freed - just scrub the structure so future use will assert. */
-        ( void ) memset( pxStreamBuffer, 0x00, sizeof( StreamBuffer_t ) );
+        /* memset causes exception, a workaround as StreamBuffer is zero inited in .bss, to be fixed */
+        /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
+        /* ( void ) memset( pxStreamBuffer, 0x00, sizeof( StreamBuffer_t ) ); */
     }
 
     traceRETURN_vStreamBufferDelete();
@@ -1605,7 +1607,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
     }
     #endif
 
-    ( void ) memset( ( void * ) pxStreamBuffer, 0x00, sizeof( StreamBuffer_t ) );
+    /* memset causes exception, a workaround as StreamBuffer is zero inited in .bss, to be fixed */
+    /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
+    /* ( void ) memset( ( void * ) pxStreamBuffer, 0x00, sizeof( StreamBuffer_t ) ); */
     pxStreamBuffer->pucBuffer = pucBuffer;
     pxStreamBuffer->xLength = xBufferSizeBytes;
     pxStreamBuffer->xTriggerLevelBytes = xTriggerLevelBytes;

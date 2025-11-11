@@ -132,6 +132,7 @@
 
     /* Set the SP to point to the stack of the task being restored. */
     LDR     X0, pxCurrentTCBConst
+
     LDR     X1, [X0]
     LDR     X0, [X1]
     MOV     SP, X0
@@ -418,6 +419,7 @@ ullICCPMRConst: .dword ullICCPMR
 ullMaxAPIPriorityMaskConst: .dword ullMaxAPIPriorityMask
 ullPortInterruptNestingConst: .dword ullPortInterruptNesting
 ullPortYieldRequiredConst: .dword ullPortYieldRequired
+.global ullICCIARConst
 ullICCIARConst: .dword ullICCIAR
 ullICCEOIRConst: .dword ullICCEOIR
 vApplicationIRQHandlerConst: .word vApplicationIRQHandler

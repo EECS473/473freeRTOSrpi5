@@ -6,34 +6,55 @@ add_library(freertos_config INTERFACE)
 
 target_include_directories(freertos_config SYSTEM
   INTERFACE
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+target_compile_definitions(freertos_config
+  INTERFACE
+    projCOVERAGE_TEST=0
+    GUEST
+)
 
-set(FREERTOS_PORT GCC_ARM_AARCH64 CACHE STRING "")
+# select heap_1.c no free, configAPPLICATION_ALLOCATED_HEAP=0 allocating ucHeap on .bss for zero inited to avoid memset issue, see task.c memset commented, temporary workaround
+set(FREERTOS_HEAP "1" CACHE STRING "" FORCE)
+set(FREERTOS_PORT GCC_ARM_AARCH64 CACHE STRING "" FORCE)
 
 add_subdirectory(FreeRTOS-Kernel)
 
-add_executable(kernel8.elf
-  startup.S
-  syscall.c
-  main.c
+add_library(bcm2712_driver STATIC
   bcm2712_timer.c
   bcm2712_uart10.c
   bcm2712_gpio.c
 )
 
-target_include_directories(kernel8.elf
-  PRIVATE
-    include
+target_include_directories(bcm2712_driver
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_executable(kernel8.elf
+  startup.S
+  syscall.c
+  main.c
 )
 
 target_link_options(kernel8.elf
   PRIVATE
-    -T ${CMAKE_SOURCE_DIR}/raspberrypi.ld
+    -T ${CMAKE_CURRENT_SOURCE_DIR}/raspberrypi.ld
     -nostartfiles
-    # -Wl,--no-warn-rwx-segments
+    -Wl,--no-warn-rwx-segments
     -Wl,-Map ${CMAKE_BINARY_DIR}/kernel_2712.map
+)
+
+target_link_libraries(freertos_kernel_port
+  PUBLIC
+    bcm2712_driver
+)
+
+target_link_libraries(kernel8.elf
+  PRIVATE
+    freertos_kernel
+    bcm2712_driver
 )
 
 
