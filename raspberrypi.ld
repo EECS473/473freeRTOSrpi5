@@ -18,21 +18,21 @@ SECTIONS {
         __rodata_end = .;
     } >RAM
 
-    .data : {
+    .data : ALIGN(16) {
         __data_start = .;
         *(.data)
         *(.data.*)
         __data_end = .;
     } >RAM
 
-    .bss : {
+    .bss : ALIGN(16) {
         __bss_start = .;
         *(.bss)
         *(.bss.*)
         __bss_end = .;
     } >RAM
 
-    .heap : {
+    .heap : ALIGN(16) {
         __heap_start = .;
         . += 32M;
         __heap_end = .;

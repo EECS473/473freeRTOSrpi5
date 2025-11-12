@@ -443,7 +443,7 @@ typedef tskTCB TCB_t;
     /* MISRA Ref 8.4.1 [Declaration shall be visible] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
     /* coverity[misra_c_2012_rule_8_4_violation] */
-    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile __attribute__((section(".data"))) pxCurrentTCB = NULL;
+    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #else
     /* MISRA Ref 8.4.1 [Declaration shall be visible] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
@@ -1284,9 +1284,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-113 */
             /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTCB = ( TCB_t * ) pxTaskBuffer;
-            /* memset causes exception, a workaround as TaskBuffer is zero inited in .bss, to be fixed */
-            /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
-            /* ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) ); */
+            ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
             pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
@@ -1398,9 +1396,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
              * on the implementation of the port malloc function and whether or
              * not static allocation is being used. */
             pxNewTCB = ( TCB_t * ) pxTaskDefinition->pxTaskBuffer;
-            /* memset causes exception, a workaround as TaskBuffer is zero inited in .bss, to be fixed */
-            /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
-            /* ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) ); */
+            ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
             /* Store the stack location in the TCB. */
             pxNewTCB->pxStack = pxTaskDefinition->puxStackBuffer;
@@ -1518,9 +1514,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB != NULL )
             {
-                /* memset causes exception, a workaround as TaskBuffer is zero inited in .bss, to be fixed */
-                /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
-                /* ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) ); */
+                ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                 /* Store the stack location in the TCB. */
                 pxNewTCB->pxStack = pxTaskDefinition->puxStackBuffer;
@@ -1647,9 +1641,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB != NULL )
             {
-                /* memset causes exception, a workaround as TaskBuffer is zero inited in .bss, to be fixed */
-                /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
-                /* ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) ); */
+                ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                 /* Allocate space for the stack used by the task being created.
                  * The base of the stack memory stored in the TCB so the task can
@@ -1687,9 +1679,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 if( pxNewTCB != NULL )
                 {
-                    /* memset causes exception, a workaround as TaskBuffer is zero inited in .bss, to be fixed */
-                    /* Dynamic memory allocation APIs uses heap_1, ucHeap is zero inited in .bss, memset commented out doesn't affect */
-                    /* ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) ); */
+                    ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                     /* Store the stack location in the TCB. */
                     pxNewTCB->pxStack = pxStack;
@@ -1831,7 +1821,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     #if ( tskSET_NEW_STACKS_TO_KNOWN_VALUE == 1 )
     {
         /* Fill the stack with a known value to assist debugging. */
-        /* ( void ) memset( pxNewTCB->pxStack, ( int ) tskSTACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) ); */
+        ( void ) memset( pxNewTCB->pxStack, ( int ) tskSTACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
     }
     #endif /* tskSET_NEW_STACKS_TO_KNOWN_VALUE */
 
@@ -8595,8 +8585,10 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
                                         StackType_t ** ppxIdleTaskStackBuffer,
                                         configSTACK_DEPTH_TYPE * puxIdleTaskStackSize )
     {
-        static StaticTask_t xIdleTaskTCB;
-        static StackType_t uxIdleTaskStack[ configMINIMAL_STACK_SIZE ];
+        /* memset requires at least 16 bytes alignment e.g. 3d800000        str     q0, [x0] */
+        /* in order to make it more common, align TCB and Stack buffer to 64 bytes boundary */
+        static StaticTask_t xIdleTaskTCB __attribute__ ((aligned(64)));
+        static StackType_t uxIdleTaskStack[ configMINIMAL_STACK_SIZE ] __attribute__ ((aligned(64)));
 
         *ppxIdleTaskTCBBuffer = &( xIdleTaskTCB );
         *ppxIdleTaskStackBuffer = &( uxIdleTaskStack[ 0 ] );

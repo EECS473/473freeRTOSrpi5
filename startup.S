@@ -44,6 +44,12 @@ next:
     msr vbar_el1, x0
     isb
 
+    /* enable FPEN floating point and SIMD/NEON as memset disassemble: 4e010c20        dup     v0.16b, w1 */
+    mrs x0, cpacr_el1
+    orr x0, x0, #(3 << 20)
+    msr cpacr_el1, x0
+    isb
+
     b sysinit
 
 sysinit:

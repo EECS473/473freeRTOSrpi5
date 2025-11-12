@@ -72,8 +72,8 @@ static void exampleTask1s(void* /* parameters */)
 
 int main(void)
 {
-    static StaticTask_t exampleTaskTCB;
-    static StackType_t exampleTaskStack[configMINIMAL_STACK_SIZE];
+    static StaticTask_t exampleTaskTCB __attribute__((aligned(16)));
+    static StackType_t exampleTaskStack[configMINIMAL_STACK_SIZE] __attribute__((aligned(16)));
 
     (void)xTaskCreateStatic(exampleTask100ms,
                             "exampleTask100ms",
@@ -83,9 +83,14 @@ int main(void)
                             &exampleTaskStack[0],
                             &exampleTaskTCB);
 
-    TaskHandle_t xHandle = NULL;
-    (void)xTaskCreate(
-        exampleTask1s, "exampleTask1s", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES - 1U, &xHandle);
+    TaskHandle_t exampleTask1sHandle = NULL;
+
+    (void)xTaskCreate(exampleTask1s,
+                      "exampleTask1s",
+                      configMINIMAL_STACK_SIZE,
+                      NULL,
+                      configMAX_PRIORITIES - 1U,
+                      &exampleTask1sHandle);
 
     vTaskStartScheduler();
 
