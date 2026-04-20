@@ -1,49 +1,46 @@
-MEMORY {
-    RAM : ORIGIN = 0x80000, LENGTH = 0x8000000
-}
+INCLUDE armstub8.memory
 
 SECTIONS {
+    .hdr : {
+        __hdr_start = .;
+        *(.hdr.*)
+        __hdr_end = .;
+    } >REGION_HEADER
+
     .text : {
         __text_start = .;
+        *(.armstub8.*)
         *(.text.start)
         *(.text)
         *(.text.*)
         __text_end = .;
-    } >RAM
+    } >REGION_TEXT
 
     .rodata : {
         __rodata_start = .;
         *(.rodata)
         *(.rodata.*)
         __rodata_end = .;
-    } >RAM
+    } >REGION_RODATA
 
     .data : ALIGN(16) {
         __data_start = .;
         *(.data)
         *(.data.*)
         __data_end = .;
-    } >RAM
+    } >REGION_DATA
 
     .bss : ALIGN(16) {
         __bss_start = .;
         *(.bss)
         *(.bss.*)
         __bss_end = .;
-    } >RAM
+    } >REGION_BSS
 
-    .heap : ALIGN(16) {
-        __heap_start = .;
-        . += 32M;
-        __heap_end = .;
-    } >RAM
-
-    .stack : ALIGN(16) {
+    .stack (NOLOAD) : ALIGN(16) {
         __stack_start = .;
-        . += 16M; /* each PE 4MB, SP_EL1 2MB + SP_EL2 2MB */
+        . += 0x40000;
         __stack_end = .;
-    } >RAM
-
-
+    } >REGION_STACK
 }
 

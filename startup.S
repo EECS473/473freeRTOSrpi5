@@ -1,17 +1,46 @@
+#include "platform_def.h"
+
 .section .text.start
-
 .global _start
-_start:
-    ldr x0, =__stack_el2_end
-    mov sp, x0
 
+_start:
+    mrs x10, mpidr_el1
+    lsr x10, x10, #8
+    and x10, x10, #0x3
+
+    adrp x1, __stack_end
+    add x1, x1, :lo12:__stack_end
+    mov x2, #0x400000
+    mul x2, x2, x10
+    sub x1, x1, x2
+    mov sp, x1
+
+    mov x3, #0x200000
+    sub x3, x1, x3
+    msr sp_el1, x3
+
+    cmp x10, #0
+    beq primary_core
+   
+    dsb ish
+
+secondary_core: 
+
+    mrs x0, mpidr_el1
+    bl uart10PrintHex64
+    mov x0, #';'
+    bl uart10Putc
+    mrs x0, currentel
+    bl uart10PrintHex64
+
+    wfe
+    b secondary_core
+
+primary_core:
     adrp x0, vector_el2
     add x0, x0, :lo12:vector_el2
     msr vbar_el2, x0
     isb
-
-    ldr x0, =__stack_end
-    msr sp_el1, x0
 
     ldr x0, =next
     msr elr_el2, x0
@@ -30,7 +59,22 @@ _start:
     msr mdcr_el2, xzr
     isb
 
+
+    mov x0, PLAT_RPI3_TM_HOLD_BASE 
+    add x0, x0, #0x10
+    mov x1, PLAT_RPI3_TM_HOLD_STATE_GO
+    str x1, [x0]
+    isb
+
+    mov x0, PLAT_RPI3_TM_ENTRYPOINT
+    ldr x1, =_start
+    str x1, [x0]
+    isb
+
+    sev
+
     /* bl print_registers_el2 */
+    b .
 
     eret
 
