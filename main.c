@@ -63,10 +63,8 @@ static void exampleTask100ms(void* /* parameters */)
 
 static void exampleTask1s(void* /* parameters */)
 {
-    // static volatile uint16_t myvalue = 4;
     for (;;)
     {
-        // myvalue += 1;
         vTaskDelay(1000);
         uart10Puts("example task 1s cyclic\n");
     }

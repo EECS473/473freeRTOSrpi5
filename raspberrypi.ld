@@ -40,10 +40,15 @@ SECTIONS {
 
     .stack : ALIGN(16) {
         __stack_start = .;
-        . += 16M; /* each PE 4MB, SP_EL1 2MB + SP_EL2 2MB */
+        . += 32M;
         __stack_end = .;
     } >RAM
 
+    .stack_el2 : ALIGN(16) {
+        __stack_el2_start = .;
+        . += 32M;
+        __stack_el2_end = .;
+    } >RAM
 
 }
 
