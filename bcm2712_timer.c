@@ -1,5 +1,6 @@
 #include "bcm2712_timer.h"
 #include "bcm2712.h"
+#include <stdatomic.h>
 
 void timerInit(void)
 {
@@ -39,31 +40,46 @@ void timerWait(uint32_t ms)
 }
 
 
+/*
+ * BCM2712 timer / GIC bring-up
+ *
+ * The CNTP physical timer interrupt (PPI30, private peripheral interrupt) is per-CPU,
+ * so each core has to enable its own copy. We split the original do-it-all
+ * vSetupTickInterrupt() into:
+ * - vSetupTickInterruptDistributor(): runs on CPU0 only, deals with SPI range and turns
+ *   the distributor on.
+ * - vSetupTickInterruptPerCore(): runs on every core, programs the banked PPI register,
+ *   the core's GIC CPU interface and starts CNTP.
+ * vSetupTickInterrupt() (called by configSETUP_TICK_INTERRUPT) keeps the old single-call
+ * semantics on the boot core.
+ */
 static uint64_t ticks;
-void vSetupTickInterrupt(void)
+static _Atomic uint32_t s_distributorReady = 0u;
+
+static void vSetupTickInterruptDistributor(void)
+{
+    GICD_CTLR = 0x00;
+    GICD_CTLR = 0x01;
+    __asm__ volatile("dsb sy" ::: "memory");
+    atomic_store_explicit(&s_distributorReady, 1u, memory_order_release);
+    __asm__ volatile("sev" ::: "memory");
+}
+
+static void vSetupTickInterruptPerCore(void)
 {
     uint32_t frq = SYSREG_READ(CNTFRQ_EL0);
     ticks = frq / 1000;
-
-
-    GICD_CTLR = 0x00;
     GICD_ISENABLER(CNTP_IRQ30) |= (1U << (CNTP_IRQ30 % 32));
-
-    uint32_t target = GICD_ITARGETSR(CNTP_IRQ30);
-    target &= ~(0xFF << (CNTP_IRQ30 % 4 * 8));
-    target |= (0x01 << (CNTP_IRQ30 % 4 * 8));
-    GICD_ITARGETSR(CNTP_IRQ30) = target;
 
     uint32_t pri = GICD_IPRIORITYR(CNTP_IRQ30);
     pri &= ~(0xFFu << ((CNTP_IRQ30 % 4) * 8));
     pri |= ((14 << 4) << ((CNTP_IRQ30 % 4) * 8));
     GICD_IPRIORITYR(CNTP_IRQ30) = pri;
-    GICD_CTLR = 0x01;
 
     GICC_CTLR = 0x00;
     GICC_PMR = 0xFF;
+    GICC_BPR = 0x00;
     GICC_CTLR = 0x01;
-
 
     uint32_t cntp_ctl = (uint32_t)SYSREG_READ(CNTP_CTL_EL0);
     cntp_ctl &= ~(1U << 0);
@@ -77,8 +93,21 @@ void vSetupTickInterrupt(void)
     cntp_ctl &= ~(1U << 1);
     cntp_ctl &= ~(1U << 2);
     SYSREG_WRITE(CNTP_CTL_EL0, cntp_ctl);
+}
 
-    /* __asm__ volatile("msr daifclr, #2"); */
+void vSetupTickInterrupt(void)
+{
+    vSetupTickInterruptDistributor();
+    vSetupTickInterruptPerCore();
+}
+
+void vPortSetupTickInterruptSecondary(void)
+{
+    while (atomic_load_explicit(&s_distributorReady, memory_order_acquire) == 0u)
+    {
+        __asm__ volatile("wfe" ::: "memory");
+    }
+    vSetupTickInterruptPerCore();
 }
 
 void vResetTickInterrupt(void)
