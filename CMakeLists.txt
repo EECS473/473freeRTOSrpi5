@@ -25,6 +25,14 @@ add_library(bcm2712_driver STATIC
   bcm2712_timer.c
   bcm2712_uart10.c
   bcm2712_gpio.c
+  bcm2712_smp.c
+)
+
+target_link_libraries(bcm2712_driver
+  PUBLIC
+    freertos_config
+    freertos_kernel_include
+    freertos_kernel_port_headers
 )
 
 target_include_directories(bcm2712_driver
