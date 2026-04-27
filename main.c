@@ -1,5 +1,6 @@
 #include "FreeRTOS.h"
 #include "bcm2712_gpio.h"
+#include "bcm2712_smp.h"
 #include "bcm2712_timer.h"
 #include "bcm2712_uart10.h"
 #include "task.h"
@@ -50,12 +51,21 @@ void syscall_pre(void)
     stdout->_write = _write_r;
 }
 
+static inline uint32_t currentCoreId(void)
+{
+    uint64_t mpidr;
+    __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
+    return (uint32_t)((mpidr >> 8) & 0xFF);
+}
+
 static void exampleTask100ms(void* /* parameters */)
 {
     for (;;)
     {
         vTaskDelay(100);
-        uart10Puts("Tick count (ms): ");
+        uart10Puts("[core ");
+        uart10PrintDec(currentCoreId());
+        uart10Puts("] tick (ms): ");
         uart10PrintDec(xTaskGetTickCount());
         uart10Puts("\n");
     }
@@ -66,23 +76,39 @@ static void exampleTask1s(void* /* parameters */)
     for (;;)
     {
         vTaskDelay(1000);
-        uart10Puts("example task 1s cyclic\n");
+        uart10Puts("[core ");
+        uart10PrintDec(currentCoreId());
+        uart10Puts("] 1s cyclic\n");
+    }
+}
+
+static void coreHeartbeatTask(void* parameters)
+{
+    uint32_t myAffinityCore = (uint32_t)(uintptr_t)parameters;
+    for (;;)
+    {
+        vTaskDelay(500);
+        uart10Puts("hb: pinned-core=");
+        uart10PrintDec(myAffinityCore);
+        uart10Puts(" running-core=");
+        uart10PrintDec(currentCoreId());
+        uart10Puts("\n");
     }
 }
 
 int main(void)
 {
-    static StaticTask_t exampleTaskTCB __attribute__((aligned(16)));
-    static StackType_t exampleTaskStack[configMINIMAL_STACK_SIZE] __attribute__((aligned(16)));
+    uart10Puts("[core 0] FreeRTOS SMP boot\n");
+    uart10Puts("[core 0] FreeRTOS SMP boot\n");
+    TaskHandle_t exampleTask100msHandle = NULL;
+    (void)xTaskCreate(exampleTask100ms,
+                      "exampleTask100ms",
+                      configMINIMAL_STACK_SIZE,
+                      NULL,
+                      configMAX_PRIORITIES - 1U,
+                      &exampleTask100msHandle);
 
-    (void)xTaskCreateStatic(exampleTask100ms,
-                            "exampleTask100ms",
-                            configMINIMAL_STACK_SIZE,
-                            NULL,
-                            configMAX_PRIORITIES - 1U,
-                            &exampleTaskStack[0],
-                            &exampleTaskTCB);
-
+    uart10Puts("Before start scheduler \n");
     TaskHandle_t exampleTask1sHandle = NULL;
 
     (void)xTaskCreate(exampleTask1s,
@@ -91,6 +117,15 @@ int main(void)
                       NULL,
                       configMAX_PRIORITIES - 1U,
                       &exampleTask1sHandle);
+
+#if configNUMBER_OF_CORES > 1
+    for (uintptr_t i = 0; i < 4; ++i)
+    {
+        TaskHandle_t hb = NULL;
+        (void)xTaskCreate(coreHeartbeatTask, "hb", configMINIMAL_STACK_SIZE, (void*)i, tskIDLE_PRIORITY + 1u, &hb);
+    }
+    bcm2712SmpBringupSecondaryCpus();
+#endif
 
     vTaskStartScheduler();
 

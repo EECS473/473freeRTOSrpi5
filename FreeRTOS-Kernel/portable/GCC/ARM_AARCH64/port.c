@@ -118,8 +118,14 @@
 /* The I bit in the DAIF bits. */
 #define portDAIF_I                 ( 0x80 )
 
-/* Macro to unmask all interrupt priorities. */
-#define portCLEAR_INTERRUPT_MASK()                            \
+/*
+ * Macro to unmask all interrupt priorities. Only used internally by the legacy
+ * single-core criteria-section / tick paths below. The SMP build defines
+ * portCLEAR_INTERRUPT_MASK(x) in portmacro.h for a different
+ * purpose (DAIF restore), so use a port-private name to avoid the resulting
+ * redifinition warning.
+ */
+#define prvUNMASK_ALL_PRIORITIES()                            \
     {                                                         \
         portDISABLE_INTERRUPTS();                             \
         portICCPMR_PRIORITY_MASK_REGISTER = portUNMASK_VALUE; \
@@ -142,6 +148,14 @@
 extern void vPortRestoreTaskContext( void );
 
 /*-----------------------------------------------------------*/
+#if configNUMBER_OF_CORES > 1
+uint64_t ullPortYieldRequired[configNUMBER_OF_CORES] = {pdFALSE};
+uint64_t ullPortInterruptNesting[configNUMBER_OF_CORES] = {0};
+uint64_t ullPortTaskHasFPUContext[configNUMBER_OF_CORES] = {pdFALSE};
+
+volatile uint64_t ullPortSchedulerRunning = pdFALSE;
+
+#else
 
 /* A variable is used to keep track of the critical section nesting.  This
  * variable has to be stored as part of the task context and must be initialised to
@@ -160,6 +174,8 @@ uint64_t ullPortYieldRequired = pdFALSE;
 /* Counts the interrupt nesting depth.  A context switch is only performed if
  * if the nesting depth is 0. */
 uint64_t ullPortInterruptNesting = 0;
+
+#endif
 
 /* Used in the ASM code. */
 __attribute__( ( used ) ) const uint64_t ullICCEOIR = portICCEOIR_END_OF_INTERRUPT_REGISTER_ADDRESS;
@@ -337,6 +353,14 @@ BaseType_t xPortStartScheduler( void )
             /* Start the timer that generates the tick ISR. */
             configSETUP_TICK_INTERRUPT();
 
+            #if configNUMBER_OF_CORES > 1
+            {
+                __atomic_store_n(&ullPortSchedulerRunning, pdTRUE, __ATOMIC_RELEASE);
+                __asm__ volatile("sev" ::: "memory");
+
+            }
+            #endif
+
             /* Start the first task executing. */
             vPortRestoreTaskContext();
         }
@@ -346,14 +370,95 @@ BaseType_t xPortStartScheduler( void )
 }
 /*-----------------------------------------------------------*/
 
+#if configNUMBER_OF_CORES > 1
+extern void vPortSetupTickInterruptSecondary(void);
+void vPortStartSchedulerOnSecondaryCore(uint32_t ulCoreID)
+{
+    (void) ulCoreID;
+    uart10Puts("core id: ");
+    uart10PrintDec(ulCoreID);
+    uart10Puts("\r\n");
+    while (__atomic_load_n(&ullPortSchedulerRunning, __ATOMIC_ACQUIRE) == pdFALSE)
+    {
+        __asm__ volatile("wfe" ::: "memory");
+    }
+
+    uart10Puts("core id: ");
+    uart10PrintDec(ulCoreID);
+    uart10Puts("\r\n");
+
+    portDISABLE_INTERRUPTS();
+    vPortSetupTickInterruptSecondary();
+    vPortRestoreTaskContext();
+
+    /* Never reach here */
+    for (;;)
+    {
+        __asm__ volatile("wfi");
+    }
+}
+
+static volatile uint32_t ulPortLockGate[portRTOS_LOCK_COUNT] = {0};
+static volatile uint32_t ulPortLockOwner[portRTOS_LOCK_COUNT] = {0xFFFFFFFFu, 0xFFFFFFFFu};
+static volatile uint32_t ulPortLockNesting[portRTOS_LOCK_COUNT][configNUMBER_OF_CORES];
+
+void vPortRecursiveLock(uint32_t ulLockNum, BaseType_t xAcquire)
+{
+    uint32_t ulCoreID = (uint32_t)portGET_CORE_ID();
+    configASSERT(ulLockNum < portRTOS_LOCK_COUNT);
+
+    if (xAcquire != pdFALSE)
+    {
+        if (__atomic_load_n(&ulPortLockOwner[ulLockNum], __ATOMIC_RELAXED) == ulCoreID)
+        {
+            ++ulPortLockNesting[ulLockNum][ulCoreID];
+            return;
+        }
+
+        for (;;)
+        {
+            while (__atomic_load_n(&ulPortLockGate[ulLockNum], __ATOMIC_RELAXED) != 0)
+            {
+                __asm__ volatile("wfe" ::: "memory");
+            }
+
+            if (__atomic_exchange_n(&ulPortLockGate[ulLockNum], 1, __ATOMIC_ACQUIRE) == 0)
+            {
+                break;
+            }
+        }
+
+        ulPortLockOwner[ulLockNum] = ulCoreID;
+        ulPortLockNesting[ulLockNum][ulCoreID] = 1;
+    }
+    else
+    {
+        configASSERT(__atomic_load_n(&ulPortLockOwner[ulLockNum], __ATOMIC_RELAXED) == ulCoreID);
+        configASSERT(ulPortLockNesting[ulLockNum][ulCoreID] > 0);
+        if (--ulPortLockNesting[ulLockNum][ulCoreID] == 0)
+        {
+            ulPortLockOwner[ulLockNum] = 0xFFFFFFFFu;
+            __atomic_store_n(&ulPortLockGate[ulLockNum], 0, __ATOMIC_RELEASE);
+            __asm__ volatile("sev");
+        }
+    }
+}
+
+#endif
+
 void vPortEndScheduler( void )
 {
     /* Not implemented in ports where there is nothing to return to.
      * Artificially force an assert. */
+#if configNUMBER_OF_CORES > 1
+    configASSERT(0);
+#else
     configASSERT( ullCriticalNesting == 1000ULL );
+#endif
 }
 /*-----------------------------------------------------------*/
 
+#if configNUMBER_OF_CORES == 1
 void vPortEnterCritical( void )
 {
     /* Mask interrupts up to the max syscall interrupt priority. */
@@ -390,10 +495,12 @@ void vPortExitCritical( void )
         {
             /* Critical nesting has reached zero so all interrupt priorities
              * should be unmasked. */
-            portCLEAR_INTERRUPT_MASK();
+            prvUNMASK_ALL_PRIORITIES();
         }
     }
 }
+
+#endif
 /*-----------------------------------------------------------*/
 
 void FreeRTOS_Tick_Handler( void )
@@ -428,14 +535,36 @@ void FreeRTOS_Tick_Handler( void )
     configCLEAR_TICK_INTERRUPT();
     portENABLE_INTERRUPTS();
 
-    /* Increment the RTOS tick. */
-    if( xTaskIncrementTick() != pdFALSE )
+    #if configNUMBER_OF_CORES > 1
     {
-        ullPortYieldRequired = pdTRUE;
+        BaseType_t xCoreID = portGET_CORE_ID();
+
+        if (xCoreID == 0)
+        {
+            UBaseType_t uxSavedStatus = taskENTER_CRITICAL_FROM_ISR();
+            if (xTaskIncrementTick() != pdFALSE)
+            {
+                ullPortYieldRequired[xCoreID] = pdTRUE;
+            }
+
+            taskEXIT_CRITICAL_FROM_ISR(uxSavedStatus);
+        }
+        else
+        {
+            ullPortYieldRequired[xCoreID] = pdTRUE;
+        }
     }
+    #else
+    {
+        if (xTaskIncrementTick() != pdFALSE)
+        {
+            ullPortYieldRequired = pdTRUE;
+        }
+    }
+    #endif
 
     /* Ensure all interrupt priorities are active again. */
-    portCLEAR_INTERRUPT_MASK();
+    prvUNMASK_ALL_PRIORITIES();
 }
 /*-----------------------------------------------------------*/
 
@@ -443,7 +572,11 @@ void vPortTaskUsesFPU( void )
 {
     /* A task is registering the fact that it needs an FPU context.  Set the
      * FPU flag (which is saved as part of the task context). */
+    #if configNUMBER_OF_CORES > 1
+    ullPortTaskHasFPUContext[portGET_CORE_ID()] = pdTRUE;
+    #else
     ullPortTaskHasFPUContext = pdTRUE;
+    #endif
 
     /* Consider initialising the FPSR here - but probably not necessary in
      * AArch64. */
@@ -454,7 +587,7 @@ void vPortClearInterruptMask( UBaseType_t uxNewMaskValue )
 {
     if( uxNewMaskValue == pdFALSE )
     {
-        portCLEAR_INTERRUPT_MASK();
+        prvUNMASK_ALL_PRIORITIES();
     }
 }
 /*-----------------------------------------------------------*/

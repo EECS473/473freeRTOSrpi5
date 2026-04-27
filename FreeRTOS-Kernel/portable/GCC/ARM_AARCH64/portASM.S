@@ -25,17 +25,23 @@
  * https://github.com/FreeRTOS
  *
  */
-
+#include "FreeRTOSConfig.h"
     .text
 
     /* Variables and functions. */
     .extern ullMaxAPIPriorityMask
+#if configNUMBER_OF_CORES > 1
+    .extern pxCurrentTCBs
+#else
     .extern pxCurrentTCB
+#endif
     .extern vTaskSwitchContext
     .extern vApplicationIRQHandler
     .extern ullPortInterruptNesting
     .extern ullPortTaskHasFPUContext
+#if configNUMBER_OF_CORES == 1
     .extern ullCriticalNesting
+#endif
     .extern ullPortYieldRequired
     .extern ullICCEOIR
     .extern ullICCIAR
@@ -44,6 +50,12 @@
     .global FreeRTOS_IRQ_Handler
     .global FreeRTOS_SWI_Handler
     .global vPortRestoreTaskContext
+
+
+.macro portGET_CORE_ID_x xreg
+    MRS     \xreg, MPIDR_EL1
+    UBFX    \xreg, \xreg, #8, #8
+.endm
 
 
 .macro portSAVE_CONTEXT
@@ -81,6 +93,12 @@
 
     STP     X2, X3, [SP, #-0x10]!
 
+#if configNUMBER_OF_CORES > 1
+    MOV     x3, #0
+    portGET_CORE_ID_x X4
+    LDR     x0, ullPortTaskHasFPUContextConst
+    LDR     x2, [x0, x4, LSL #3]
+#else
     /* Save the critical section nesting depth. */
     LDR     X0, ullCriticalNestingConst
     LDR     X3, [X0]
@@ -88,6 +106,7 @@
     /* Save the FPU context indicator. */
     LDR     X0, ullPortTaskHasFPUContextConst
     LDR     X2, [X0]
+#endif
 
     /* Save the FPU context, if any (32 128-bit registers). */
     CMP     X2, #0
@@ -113,8 +132,14 @@
     /* Store the critical nesting count and FPU context indicator. */
     STP     X2, X3, [SP, #-0x10]!
 
+#if configNUMBER_OF_CORES > 1
+    portGET_CORE_ID_x x4
+    LDR     x0, pxCurrentTCBsConst
+    LDR     x1, [x0, x4, LSL #3]
+#else
     LDR     X0, pxCurrentTCBConst
     LDR     X1, [X0]
+#endif
     MOV     X0, SP   /* Move SP into X0 for saving. */
     STR     X0, [X1]
 
@@ -130,15 +155,35 @@
     /* Switch to use the EL0 stack pointer. */
     MSR     SPSEL, #0
 
+#if configNUMBER_OF_CORES > 1
+    portGET_CORE_ID_x x4
+    LDR     x0, pxCurrentTCBsConst
+    LDR     x1, [x0, x4, LSL #3]
+    LDR     x0, [x1]
+    MOV     SP, x0
+#else
     /* Set the SP to point to the stack of the task being restored. */
     LDR     X0, pxCurrentTCBConst
 
     LDR     X1, [X0]
     LDR     X0, [X1]
     MOV     SP, X0
+#endif
 
     LDP     X2, X3, [SP], #0x10  /* Critical nesting and FPU context. */
 
+#if configNUMBER_OF_CORES > 1
+    LDR     x4, ullICCPMRConst
+    LDR     x5, [x4]
+    MOV     w1, #255
+    STR     w1, [x5]
+    DSB     SY
+    ISB     SY
+
+    portGET_CORE_ID_x x4
+    LDR     x0, ullPortTaskHasFPUContextConst
+    STR     x2, [x0, x4, LSL #3]
+#else
     /* Set the PMR register to be correct for the current critical nesting
     depth. */
     LDR     X0, ullCriticalNestingConst /* X0 holds the address of ullCriticalNesting. */
@@ -158,6 +203,7 @@
     /* Restore the FPU context indicator. */
     LDR     X0, ullPortTaskHasFPUContextConst
     STR     X2, [X0]
+#endif
 
     /* Restore the FPU context, if any. */
     CMP     X2, #0
@@ -240,6 +286,9 @@ FreeRTOS_SWI_Handler:
     CMP     X1, #0x17   /* 0x17 = SMC instruction. */
 #endif
     B.NE    FreeRTOS_Abort
+#if configNUMBER_OF_CORES > 1
+    portGET_CORE_ID_x x0
+#endif
     BL      vTaskSwitchContext
 
     portRESTORE_CONTEXT
@@ -300,7 +349,13 @@ FreeRTOS_IRQ_Handler:
     STP     X2, X3, [SP, #-0x10]!
 
     /* Increment the interrupt nesting counter. */
+#if configNUMBER_OF_CORES > 1
+    portGET_CORE_ID_x x4
+    LDR     x5, ullPortInterruptNestingConst
+    ADD     x5, x5, x4, LSL #3
+#else
     LDR     X5, ullPortInterruptNestingConst
+#endif
     LDR     X1, [X5]    /* Old nesting count in X1. */
     ADD     X6, X1, #1
     STR     X6, [X5]    /* Address of nesting count variable in X5. */
@@ -341,8 +396,14 @@ FreeRTOS_IRQ_Handler:
     CMP     X1, #0
     B.NE    Exit_IRQ_No_Context_Switch
 
+#if configNUMBER_OF_CORES > 1
+    portGET_CORE_ID_x x4
+    LDR     X0, ullPortYieldRequiredConst
+    ADD     x0, x0, x4, LSL #3
+#else
     /* Is a context switch required? */
     LDR     X0, ullPortYieldRequiredConst
+#endif
     LDR     X1, [X0]
     CMP     X1, #0
     B.EQ    Exit_IRQ_No_Context_Switch
@@ -377,6 +438,9 @@ FreeRTOS_IRQ_Handler:
 
     /* Save the context of the current task and select a new task to run. */
     portSAVE_CONTEXT
+#if configNUMBER_OF_CORES > 1
+    portGET_CORE_ID_x x0
+#endif
     BL vTaskSwitchContext
     portRESTORE_CONTEXT
 
@@ -411,8 +475,12 @@ Exit_IRQ_No_Context_Switch:
 
 
 .align 8
+#if configNUMBER_OF_CORES > 1
+pxCurrentTCBsConst: .dword pxCurrentTCBs
+#else
 pxCurrentTCBConst: .dword pxCurrentTCB
 ullCriticalNestingConst: .dword ullCriticalNesting
+#endif
 ullPortTaskHasFPUContextConst: .dword ullPortTaskHasFPUContext
 
 ullICCPMRConst: .dword ullICCPMR

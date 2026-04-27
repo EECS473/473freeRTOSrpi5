@@ -42,6 +42,8 @@ target_include_directories(bcm2712_driver
 
 add_executable(kernel8.elf
   startup.S
+  aarch64_memset.S
+  aarch64_mmu.c
   syscall.c
   main.c
 )

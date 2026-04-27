@@ -67,3 +67,5 @@ __per_cpu_stack_el1_size = PER_CPU_STACK_EL1_SIZE;
 __per_cpu_stack_el2_size = PER_CPU_STACK_EL2_SIZE;
 __per_cpu_stack_el3_size = PER_CPU_STACK_EL3_SIZE;
 
+__stack_end = __stack_el1_end;
+__per_cpu_stack_size = __per_cpu_stack_el1_size;
