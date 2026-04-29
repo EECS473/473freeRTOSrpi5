@@ -406,10 +406,13 @@
  * number of the failing assert (for example, "vAssertCalled( __FILE__, __LINE__ )"
  * or it can simple disable interrupts and sit in a loop to halt all execution
  * on the failing line for viewing in a debugger. */
+#define _CFG_STRINGIFY(x) #x
+#define _CFG_STRING(x) _CFG_STRINGIFY(x)
 #define configASSERT(x)                                                                                                \
     if ((x) == 0)                                                                                                      \
     {                                                                                                                  \
         taskDISABLE_INTERRUPTS();                                                                                      \
+        uart10Puts("[ASSERT] " __FILE__ ":" _CFG_STRING(__LINE__) "\n"); \
         for (;;)                                                                                                       \
             ;                                                                                                          \
     }

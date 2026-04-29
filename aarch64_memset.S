@@ -6,7 +6,7 @@
 memset:
     cbz     x2, 9f
     mov     x3, x0
-    add     w1, w1, #0xff
+    and     w1, w1, #0xff
 
 1:  tst     x3, #7
     b.eq    2f

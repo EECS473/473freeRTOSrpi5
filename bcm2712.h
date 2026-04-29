@@ -17,6 +17,7 @@
 
 #define GICD_BASE (BCM2712_PER_BASE + 0x7FFF9000ULL)
 #define GICD_CTLR (*(volatile uint32_t*)(GICD_BASE + 0x0000))
+#define GICD_IGROUPR(n) (*(volatile uint32_t*)(GICD_BASE + 0x0080 + (n) / 32 * 4))
 #define GICD_ISENABLER(n) (*(volatile uint32_t*)(GICD_BASE + 0x0100 + (n) / 32 * 4))
 #define GICD_ISPENDR(n) (*(volatile uint32_t*)(GICD_BASE + 0x200 + (n) / 32 * 4))
 #define GICD_IPRIORITYR(n) (*(volatile uint32_t*)(GICD_BASE + 0x0400 + (n) / 4 * 4))

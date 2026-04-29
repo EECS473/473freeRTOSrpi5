@@ -30,12 +30,17 @@ static void smpSendEvent(void)
 void bcm2712SmpBringupSecondaryCpus(void)
 {
     RPI5_MBOX_ENTRY = (uint64_t)(uintptr_t)&_start;
-    smpDsbSy();
 
     for (uint32_t core = 1u; core < SMP_NUM_CORES; ++core)
     {
         RPI5_MBOX_HOLD(core) = 1u;
     }
+
+    __asm__ volatile("dc cvac, %0\n"
+                     "dsb sy"
+                    :
+                    : "r" (&RPI5_MBOX_ENTRY)
+                    : "memory");
 
     smpSendEvent();
 }

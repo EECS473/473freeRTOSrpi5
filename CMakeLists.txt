@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(raspberrypi_freertos LANGUAGES ASM C CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "compile_commands.json")
+
 add_library(freertos_config INTERFACE)
 
 target_include_directories(freertos_config SYSTEM

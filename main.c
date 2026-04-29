@@ -98,8 +98,6 @@ static void coreHeartbeatTask(void* parameters)
 
 int main(void)
 {
-    uart10Puts("[core 0] FreeRTOS SMP boot\n");
-    uart10Puts("[core 0] FreeRTOS SMP boot\n");
     TaskHandle_t exampleTask100msHandle = NULL;
     (void)xTaskCreate(exampleTask100ms,
                       "exampleTask100ms",
@@ -108,7 +106,6 @@ int main(void)
                       configMAX_PRIORITIES - 1U,
                       &exampleTask100msHandle);
 
-    uart10Puts("Before start scheduler \n");
     TaskHandle_t exampleTask1sHandle = NULL;
 
     (void)xTaskCreate(exampleTask1s,

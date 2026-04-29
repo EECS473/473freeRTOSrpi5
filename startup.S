@@ -46,6 +46,14 @@ _start:
      * EL3 -> EL2 下沉（仅从核 CPU1..3 走这里）
      * ------------------------------------------------------------ */
 
+    /*
+     * cntfrq_el0在ARMv8-A上是EL3-write only, pi5 firmware只在CPU0上设置过它
+     * 为54MHz，CPU1..3被armstub的mailbox释放后落到这里时，这个值是不固定值
+     */
+    ldr     w0, =54000000
+    msr     cntfrq_el0, x0
+    isb
+
     msr     cptr_el3, xzr                   /* 不拦截下位 EL 的 FP/SIMD */
     isb
 
@@ -142,6 +150,7 @@ on_el1:
      * 之前完成。仅 CPU0 清会有竞态：从核在 ullPortSchedulerRunning 等被
      * CPU0 写到 0 之前就读到随机值，可能错误退出等待并破坏内存。多核对同
      * 一区间并发 str xzr 是幂等且可接受的。 */
+    cbnz    x19, clear_bss_done
     ldr     x0, =__bss_start
     ldr     x1, =__bss_end
 clear_bss:
@@ -167,40 +176,102 @@ clear_bss_done:
      * 这条边界——前者以 non-cacheable 写 stack，后者以 cacheable 读
      * stack，A76 上这种 mismatched memory attributes 会让核当场吊死。
      *
-     * 同样原因，这里只开 SCTLR.M|.I，**暂不开 D-cache (.C)**。这样普通
-     * 数据访问被强制按 non-cacheable 处理，规避了 boot ROM/firmware
-     * 在 D-cache 里残留脏行的所有可能；同时 LDXR/STXR、LSE 原子在
-     * Normal Inner-Shareable 上仍然合法可用，FreeRTOS SMP 关键区可以
-     * 工作。等系统跑稳后再考虑开 .C。 */
+     * 必须开 D-cache (SCTLR_EL1.C)：A76 的 LL/SC monitor 与 LSE 原子在
+     * Normal Inner-Shareable Non-Cacheable 内存上是 implementation-
+     * defined，实测会以 Synchronous External Abort 返回（ESR 0x96000410，
+     * DFSC=0x10）。开 D-cache 之前必须先做 D-cache invalidate by set/
+     * way，否则 boot ROM/firmware 残留在 cache 里的脏行会立刻和 DRAM
+     * 起冲突。AArch64 没有"一条指令清光所有 D-cache"，只能循环 dc isw。 */
     cbnz    x19, mmu_enable_el1
     bl      aarch64_mmu_build_table_cpu0
 
-    /* ---------------- 所有核：开 MMU + I-cache ---------------- */
+    /* ---------------- 所有核：开 MMU + I-cache + D-cache ---------------- */
 mmu_enable_el1:
-    /* MAIR_EL1：[0]=Device-nGnRnE (0x00), [1]=Normal WB-WA (0xFF) */
+    /* 1) D-cache invalidate by set/way（针对所有本核可见的 cache 层级）。
+     *    Cortex-A76 + DSU 上 LoC 通常是 3，包含 L1D + L2 + L3。代码用
+     *    CLIDR/CCSIDR 自适应不依赖具体几级。
+     *
+     *    寄存器约定（不与外面冲突）：
+     *      x0  = clidr_el1
+     *      x3  = LoC * 2 (终止条件)
+     *      x9  = working "way" counter
+     *      x10 = current level << 1 (= csselr value)
+     *      x11 = composed dc isw operand
+     *      x1, x2, x4-x7 工作寄存器
+     */
+    mrs     x0, clidr_el1
+    and     x3, x0, #0x7000000           /* CLIDR.LoC = bits[26:24]   */
+    lsr     x3, x3, #23                  /* LoC * 2                   */
+    cbz     x3, mmu_dcache_inv_done
+    mov     x10, #0                      /* level 0, csselr = 0       */
+
+mmu_dcache_inv_level:
+    add     x2, x10, x10, lsr #1         /* x2 = level * 3            */
+    lsr     x1, x0, x2                   /* x1 = clidr >> (level * 3) */
+    and     x1, x1, #7                   /* Ctype for this level      */
+    cmp     x1, #2                       /* 2,3,4 都有 D-cache        */
+    b.lt    mmu_dcache_inv_next
+
+    msr     csselr_el1, x10              /* 选这个 cache              */
+    isb
+    mrs     x1, ccsidr_el1               /* 读它的几何形状            */
+
+    and     x2, x1, #7                   /* x2 = log2(line)-4         */
+    add     x2, x2, #4                   /* log2(line size in bytes)  */
+    mov     x4, #0x3ff
+    and     x4, x4, x1, lsr #3           /* ways - 1                  */
+    clz     w5, w4                       /* way 字段在 dc isw 里的左移 */
+    mov     x7, #0x7fff
+    and     x7, x7, x1, lsr #13          /* sets - 1                  */
+
+mmu_dcache_inv_set:
+    mov     x9, x4
+mmu_dcache_inv_way:
+    lsl     x6, x9, x5                   /* way << way_shift          */
+    orr     x11, x10, x6                 /* level | way               */
+    lsl     x6, x7, x2                   /* set << line_shift         */
+    orr     x11, x11, x6                 /* full dc isw operand       */
+    dc      isw, x11                     /* invalidate this set/way   */
+    subs    x9, x9, #1
+    b.ge    mmu_dcache_inv_way
+    subs    x7, x7, #1
+    b.ge    mmu_dcache_inv_set
+
+mmu_dcache_inv_next:
+    add     x10, x10, #2                 /* 下一层 cache              */
+    cmp     x3, x10
+    b.gt    mmu_dcache_inv_level
+
+mmu_dcache_inv_done:
+    msr     csselr_el1, xzr
+    dsb     sy
+    isb
+
+    /* 2) MAIR_EL1：[0]=Device-nGnRnE (0x00), [1]=Normal WB-WA (0xFF) */
     ldr     x0, =mmu_mair_el1_value
     ldr     x0, [x0]
     msr     mair_el1, x0
 
-    /* TCR_EL1：T0SZ=25 (39-bit VA), 4K granule, IS, IPS=40-bit, EPD1=1 */
+    /* 3) TCR_EL1：T0SZ=25 (39-bit VA), 4K granule, IS, IPS=40-bit, EPD1=1 */
     ldr     x0, =mmu_tcr_el1_value
     ldr     x0, [x0]
     msr     tcr_el1, x0
 
-    /* TTBR0_EL1 = &g_aarch64_l1_table */
+    /* 4) TTBR0_EL1 = &g_aarch64_l1_table */
     ldr     x0, =g_aarch64_l1_table
     msr     ttbr0_el1, x0
 
-    /* 清掉 boot ROM/armstub 残留的 I-cache、TLB；D-cache 暂不动。 */
+    /* 5) 清 I-cache、TLB（D-cache 已经在上面 invalidate 过了） */
     ic      iallu
     tlbi    vmalle1
     dsb     ish
     isb
 
-    /* 翻 SCTLR_EL1.M | .I（不动 .C）。M 与 I 一起开比先 M 后 I 更省一次
-     * isb，并且因为 ic iallu 已经做过，I-cache 上线后是干净的。 */
+    /* 6) 翻 SCTLR_EL1.M | .C | .I，三个一起开。
+     *    M：MMU；C：D-cache；I：I-cache。 */
     mrs     x0, sctlr_el1
     orr     x0, x0, #(1 << 0)            /* M  - MMU enable      */
+    orr     x0, x0, #(1 << 2)            /* C  - D-cache enable  */
     orr     x0, x0, #(1 << 12)           /* I  - I-cache enable  */
     msr     sctlr_el1, x0
     isb
@@ -228,7 +299,7 @@ mmu_enable_el1:
      * ------------------------------------------------------------ */
 secondary_el1:
     mov     w0, w19                         /* uint32_t core id */
-    /* bl      vPortStartSchedulerOnSecondaryCore */
+    bl      vPortStartSchedulerOnSecondaryCore
     b       halt                            /* 正常不返回，防御性兜底 */
 
 

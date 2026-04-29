@@ -350,8 +350,11 @@ BaseType_t xPortStartScheduler( void )
              * executing. */
             portDISABLE_INTERRUPTS();
 
+            uart10Puts("[trace] xPortStartScheduler: before configSETUP_TICK_INTERRUPT\n");
+
             /* Start the timer that generates the tick ISR. */
             configSETUP_TICK_INTERRUPT();
+            uart10Puts("[trace] xPortStartScheduler: tick setup done\n");
 
             #if configNUMBER_OF_CORES > 1
             {
@@ -360,6 +363,8 @@ BaseType_t xPortStartScheduler( void )
 
             }
             #endif
+
+            uart10Puts("[trace] xPortStartScheduler: about to vPortRestoreTaskContext\n");
 
             /* Start the first task executing. */
             vPortRestoreTaskContext();
@@ -383,9 +388,7 @@ void vPortStartSchedulerOnSecondaryCore(uint32_t ulCoreID)
         __asm__ volatile("wfe" ::: "memory");
     }
 
-    uart10Puts("core id: ");
-    uart10PrintDec(ulCoreID);
-    uart10Puts("\r\n");
+    uart10Puts("SchedulerSecondary\n");
 
     portDISABLE_INTERRUPTS();
     vPortSetupTickInterruptSecondary();

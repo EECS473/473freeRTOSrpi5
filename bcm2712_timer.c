@@ -1,6 +1,9 @@
 #include "bcm2712_timer.h"
 #include "bcm2712.h"
+#include "bcm2712_uart10.h"
+#include "reg.h"
 #include <stdatomic.h>
+#include <stdint.h>
 
 void timerInit(void)
 {
@@ -58,6 +61,8 @@ static _Atomic uint32_t s_distributorReady = 0u;
 
 static void vSetupTickInterruptDistributor(void)
 {
+    uint32_t frq = SYSREG_READ(CNTFRQ_EL0);
+    ticks = frq / 1000;
     GICD_CTLR = 0x00;
     GICD_CTLR = 0x01;
     __asm__ volatile("dsb sy" ::: "memory");
@@ -67,8 +72,8 @@ static void vSetupTickInterruptDistributor(void)
 
 static void vSetupTickInterruptPerCore(void)
 {
-    uint32_t frq = SYSREG_READ(CNTFRQ_EL0);
-    ticks = frq / 1000;
+
+    GICD_IGROUPR(0) = 0xFFFFFFFFu;
     GICD_ISENABLER(CNTP_IRQ30) |= (1U << (CNTP_IRQ30 % 32));
 
     uint32_t pri = GICD_IPRIORITYR(CNTP_IRQ30);
