@@ -499,7 +499,7 @@
 /* Set configNUMBER_OF_CORES to the number of available processor cores. Defaults
  * to 1 if left undefined. */
 
-#define configNUMBER_OF_CORES 4
+#define configNUMBER_OF_CORES 2
 
 /* When using SMP (i.e. configNUMBER_OF_CORES is greater than one), set
  * configRUN_MULTIPLE_PRIORITIES to 0 to allow multiple tasks to run
@@ -641,6 +641,13 @@ void vResetTickInterrupt(void);
 #endif
 #define configSETUP_TICK_INTERRUPT() vSetupTickInterrupt()
 #define configCLEAR_TICK_INTERRUPT() vResetTickInterrupt()
+
+#ifndef __ASSEMBLER__
+#include <stdint.h>
+extern void vDebugSmpRecordSwitchIn(uint32_t);
+#endif
+
+#define traceTASK_SWITCHED_IN() vDebugSmpRecordSwitchIn((uint32_t)portGET_CORE_ID())
 
 /* Set the following INCLUDE_* constants to 1 to incldue the named API function,
  * or 0 to exclude the named API function.  Most linkers will remove unused

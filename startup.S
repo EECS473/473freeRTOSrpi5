@@ -61,6 +61,32 @@ _start:
     msr     scr_el3, x0
     isb
 
+    ldr     x0, =0x107FFF9080
+    mvn     w1, wzr
+    str     w1, [x0]
+
+    ldr     x0, =0x107FFF9100
+    mov     w1, #(1 << 30)
+    str     w1, [x0]
+
+    ldr     x0, =0x107FFF9400
+    ldr     w1, =0xE0E0E0E0
+    str     w1, [x0]
+    str     w1, [x0, #4]
+    str     w1, [x0, #8]
+    str     w1, [x0, #12]
+
+    ldr     x0, =0x107FFFA000
+    mov     w1, #0x07
+    str     w1, [x0]
+
+    ldr     x0, =0x107FFFA004
+    mov     w1, #0xF0
+    str     w1, [x0]
+
+    dsb     sy
+    isb
+
     ldr     x0, =__stack_el2_end
     ldr     x1, =__per_cpu_stack_el2_size
     mul     x2, x19, x1
@@ -521,7 +547,7 @@ el1_irq_current:
     bl      uart10PrintHex64
     mov     x0, #'\n'
     bl      uart10Putc
-    b       .
+    b       FreeRTOS_IRQ_Handler
 
 el1_fiq_current:
     mov     x0, #'F'

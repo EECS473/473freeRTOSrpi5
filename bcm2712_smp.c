@@ -3,7 +3,6 @@
 #include "bcm2712_uart10.h"
 #include <stdint.h>
 
-#define SMP_NUM_CORES 4U
 #define SMP_YIELD_SGI_ID 0U /* SGI 0 used as inter-core yield IPI, custom defined */
 
 extern void _start(void);
@@ -31,7 +30,7 @@ void bcm2712SmpBringupSecondaryCpus(void)
 {
     RPI5_MBOX_ENTRY = (uint64_t)(uintptr_t)&_start;
 
-    for (uint32_t core = 1u; core < SMP_NUM_CORES; ++core)
+    for (uint32_t core = 1u; core < configNUMBER_OF_CORES; ++core)
     {
         RPI5_MBOX_HOLD(core) = 1u;
     }
@@ -60,7 +59,7 @@ void bcm2712SmpBringupSecondaryCpus(void)
 void vPortYieldCore(uint32_t ulCoreID)
 {
     extern uint64_t ullPortYieldRequired[];
-    if (ulCoreID >= SMP_NUM_CORES)
+    if (ulCoreID >= configNUMBER_OF_CORES)
     {
         return;
     }

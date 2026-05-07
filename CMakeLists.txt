@@ -15,6 +15,7 @@ target_compile_definitions(freertos_config
   INTERFACE
     projCOVERAGE_TEST=0
     GUEST
+    BCM2712
 )
 
 # select heap_1.c no free, configAPPLICATION_ALLOCATED_HEAP=0 allocating ucHeap on .bss for zero inited to avoid memset issue, see task.c memset commented, temporary workaround

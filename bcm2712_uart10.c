@@ -1,4 +1,5 @@
 #include "bcm2712_uart10.h"
+#include <stdint.h>
 
 void uart10Init(void)
 {
@@ -10,11 +11,27 @@ void uart10Init(void)
     UART_CR = (1 << 9) | (1 << 8) | (1 << 0);
 }
 
+static volatile uint32_t s_uart_lock = 0U;
+static inline void prv_uart_lock(void)
+{
+    while (__atomic_exchange_n(&s_uart_lock, 1u, __ATOMIC_ACQUIRE) != 0u)
+    {
+        __asm__ volatile("yield" ::: "memory");
+    }
+}
+
+static inline void prv_uart_unlock(void)
+{
+    __atomic_store_n(&s_uart_lock, 0u, __ATOMIC_RELEASE);
+}
+
 void uart10Putc(char c)
 {
+    // prv_uart_lock();
     while (UART_FR & UART_FR_TXFF)
         ;
     UART_DR = c;
+    // prv_uart_unlock();
 }
 
 void uart10Puts(const char* s)

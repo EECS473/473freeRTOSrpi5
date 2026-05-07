@@ -13,6 +13,8 @@ void uart10PrintDec(uint64_t val);
 
 void uart10PrintHex8(uint8_t data);
 
+void uart10PrintHex32(uint32_t val);
+
 void uart10PrintHex64(uint64_t val);
 
 #endif

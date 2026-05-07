@@ -27,10 +27,12 @@
  */
 
 /* Standard includes. */
+#include <stdint.h>
 #include <stdlib.h>
 
 /* Scheduler includes. */
 #include "FreeRTOS.h"
+#include "bcm2712_uart10.h"
 #include "task.h"
 
 #ifndef configINTERRUPT_CONTROLLER_BASE_ADDRESS
@@ -388,8 +390,6 @@ void vPortStartSchedulerOnSecondaryCore(uint32_t ulCoreID)
         __asm__ volatile("wfe" ::: "memory");
     }
 
-    uart10Puts("SchedulerSecondary\n");
-
     portDISABLE_INTERRUPTS();
     vPortSetupTickInterruptSecondary();
     vPortRestoreTaskContext();
@@ -509,7 +509,7 @@ void vPortExitCritical( void )
 void FreeRTOS_Tick_Handler( void )
 {
     /* Must be the lowest possible priority. */
-    #if !defined( QEMU )
+    #if !defined( QEMU ) && !defined (BCM2712)
     {
         configASSERT( portICCRPR_RUNNING_PRIORITY_REGISTER == ( uint32_t ) ( portLOWEST_USABLE_INTERRUPT_PRIORITY << portPRIORITY_SHIFT ) );
     }
@@ -541,6 +541,15 @@ void FreeRTOS_Tick_Handler( void )
     #if configNUMBER_OF_CORES > 1
     {
         BaseType_t xCoreID = portGET_CORE_ID();
+        extern void vDebugSmpRecordTick(uint32_t);
+        vDebugSmpRecordTick((uint32_t)xCoreID);
+
+        static uint32_t ulCoreHeartBeatCnt[configNUMBER_OF_CORES] = {0};
+        if (++ulCoreHeartBeatCnt[xCoreID] >= 1000U)
+        {
+            ulCoreHeartBeatCnt[xCoreID] = 0U;
+            uart10Putc((char)('0' + (uint32_t)xCoreID));
+        }
 
         if (xCoreID == 0)
         {
