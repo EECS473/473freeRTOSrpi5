@@ -499,7 +499,7 @@
 /* Set configNUMBER_OF_CORES to the number of available processor cores. Defaults
  * to 1 if left undefined. */
 
-#define configNUMBER_OF_CORES 2
+#define configNUMBER_OF_CORES 4
 
 /* When using SMP (i.e. configNUMBER_OF_CORES is greater than one), set
  * configRUN_MULTIPLE_PRIORITIES to 0 to allow multiple tasks to run

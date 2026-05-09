@@ -442,6 +442,7 @@ void vPortRecursiveLock(uint32_t ulLockNum, BaseType_t xAcquire)
         {
             ulPortLockOwner[ulLockNum] = 0xFFFFFFFFu;
             __atomic_store_n(&ulPortLockGate[ulLockNum], 0, __ATOMIC_RELEASE);
+            __asm__ volatile("dsb ishst" ::: "memory");
             __asm__ volatile("sev");
         }
     }
