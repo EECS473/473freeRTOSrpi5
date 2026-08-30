@@ -32,7 +32,7 @@
 
 /* Scheduler includes. */
 #include "FreeRTOS.h"
-#include "bcm2712_uart10.h"
+#include "rp1_uart0.h"
 #include "task.h"
 
 #ifndef configINTERRUPT_CONTROLLER_BASE_ADDRESS
@@ -352,11 +352,11 @@ BaseType_t xPortStartScheduler( void )
              * executing. */
             portDISABLE_INTERRUPTS();
 
-            uart10Puts("[trace] xPortStartScheduler: before configSETUP_TICK_INTERRUPT\n");
+            rp1Uart0Puts("[trace] xPortStartScheduler: before configSETUP_TICK_INTERRUPT\n");
 
             /* Start the timer that generates the tick ISR. */
             configSETUP_TICK_INTERRUPT();
-            uart10Puts("[trace] xPortStartScheduler: tick setup done\n");
+            rp1Uart0Puts("[trace] xPortStartScheduler: tick setup done\n");
 
             #if configNUMBER_OF_CORES > 1
             {
@@ -366,7 +366,7 @@ BaseType_t xPortStartScheduler( void )
             }
             #endif
 
-            uart10Puts("[trace] xPortStartScheduler: about to vPortRestoreTaskContext\n");
+            rp1Uart0Puts("[trace] xPortStartScheduler: about to vPortRestoreTaskContext\n");
 
             /* Start the first task executing. */
             vPortRestoreTaskContext();
@@ -382,9 +382,9 @@ extern void vPortSetupTickInterruptSecondary(void);
 void vPortStartSchedulerOnSecondaryCore(uint32_t ulCoreID)
 {
     (void) ulCoreID;
-    uart10Puts("core id: ");
-    uart10PrintDec(ulCoreID);
-    uart10Puts("\r\n");
+    rp1Uart0Puts("core id: ");
+    rp1Uart0PrintDec(ulCoreID);
+    rp1Uart0Puts("\r\n");
     while (__atomic_load_n(&ullPortSchedulerRunning, __ATOMIC_ACQUIRE) == pdFALSE)
     {
         __asm__ volatile("wfe" ::: "memory");
@@ -549,7 +549,7 @@ void FreeRTOS_Tick_Handler( void )
         if (++ulCoreHeartBeatCnt[xCoreID] >= 1000U)
         {
             ulCoreHeartBeatCnt[xCoreID] = 0U;
-            uart10Putc((char)('0' + (uint32_t)xCoreID));
+            rp1Uart0Putc((char)('0' + (uint32_t)xCoreID));
         }
 
         if (xCoreID == 0)

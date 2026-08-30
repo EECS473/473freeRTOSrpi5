@@ -1,3 +1,8 @@
-build
+/build/
+/rtos473.elf
+/kernel_2712.img
 *.swp
 .cache
+/solutions/
+/scripts/
+/application/

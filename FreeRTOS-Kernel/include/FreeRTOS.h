@@ -33,7 +33,7 @@
  * Include the generic headers required for the FreeRTOS port being used.
  */
 #include <stddef.h>
-#include "bcm2712_uart10.h"
+#include "rp1_uart0.h"
 
 /*
  * If stdint.h cannot be located then:
