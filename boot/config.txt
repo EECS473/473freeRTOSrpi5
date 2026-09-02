@@ -5,6 +5,7 @@ kernel_address=0x80000
 os_check=0
 device_tree=
 pciex4_reset=0
+arm_freq=2000
 
 # RP1 UART0 on GPIO14/GPIO15 (physical pins 8/10), 115200 8N1.
 enable_uart=1

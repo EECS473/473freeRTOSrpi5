@@ -1,6 +1,8 @@
-# 473freeRTOS
+# 473freeRTOSrpi5
 This repository contains the single task example, deferred interrupt example, and starter file for the robot task of Lab 3 of EECS 473.
-EECS473 is an embedded systems class that uses the RPI4 running free RTOS to control a simple 2 wheel robot.
+
+EECS473 is an embedded systems class that uses the RPI5 running free RTOS to control a simple 2 wheel robot. RPI4 users should reference the following [repository](https://github.com/EECS473/473freeRTOSrpi4)
+
 This is a starting example running one task every 1ms to toggle GPIO pin 21.
 See the main.c, or toggle21.c in the parent directory.
 
