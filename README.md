@@ -1,39 +1,15 @@
-# Backgroud
-Porting an RTOS to a multicore processor is an essential part of an embedded software engineer’s knowledge system.
-However, when choosing a multicore processor, ordinary consumers often find it difficult to obtain mainstream chips like
-the TC397 either because the cost is high or because the purchasing channels are limited. Choosing multicore Cortex-M or
-Cortex-R processors faces similar issues. To save time, I decided simply to use the Raspberry Pi 5, which features four
-Cortex-A cores, allowing me to work directly on SMP RTOS development.
+# 473freeRTOSrpi5
+This repository contains the single task example, deferred interrupt example, and starter file for the robot task of Lab 3 of EECS 473.
 
-When I began porting FreeRTOS and looked into Raspberry Pi documentation, I accidentally discovered the Pico series -
-a set of inexpensive multicore Cortex-M processors with abundant resources. For embedded developers familiar with Cortex-M,
-this would be an excellent choice. But since I had already purchased the Raspberry Pi 5B, I could only continue working on
-the ARMv8-A Cortex-A76 architecture.
+EECS473 is an embedded systems class that uses the RPI5 running free RTOS to control a simple 2 wheel robot. RPI4 users should reference the following [repository](https://github.com/EECS473/473freeRTOSrpi4)
 
-After several months of exploring, I realized this wasn’t a bad thing at all. It gave me a brand-new understanding of A-class
-processors, and I discovered that the underlying principles are remarkably similar to those of many MCUs. This deepened and
-strengthened my understanding of embedded systems as a whole. Along the way, I had the chance to dive into device trees,
-assembly, linker script, exception level, interrupt, etc. With limited Raspberry Pi 5 documentation, by referring to
-Linux driver code and debugged step by step until I finally got FreeRTOS running.
+This is a starting example running one task every 1ms to toggle GPIO pin 21.
+See the main.c, or toggle21.c in the parent directory.
 
-# Install compilers
-Download ARM GCC cross-compiler [AArch64 bare-metal target (aarch64-none-elf)] from
-https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads on Ubuntu and unzip it to /usr and rename the folder name to
-aarch64-none-elf.
+The FreeRTOS port was developed by KeepBeyond at this [repository](https://github.com/keep-beyond/pi5_freertos).
 
+If you want instructions on how to compile this example see the tutorial file [here](https://docs.google.com/document/d/10oXdHwRclKeVJgA8NU2OM0aE9q8v3xgw/edit?usp=sharing&ouid=106568666511841334504&rtpof=true&sd=true)
 
-# Compile
-Change current working directory to pi5_freertos.
+In addition, you will find a deferred interrupt example in the file deferred_interrupt_example. See the comments for more details and the following image for the generated waverform. Copy the file contents into the main.c and compile to try. 
 
-CMake config and generation.
-```bash
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=aarch64-none-elf.toolchain.cmake
-```
-Build.
-```bash
-cmake --build build -j16
-```
-
-
-# Running
-Replace the kernel8.elf file in SD card and power on.
+![image](assets/SingleTask.png)
