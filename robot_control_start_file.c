@@ -38,10 +38,10 @@ int RIGHT_MOTOR = 0;
 //Testing for RPI5
 
 //Motor Control 
-#define EN1 20  //pwm pin, left motor
-#define EN2 21  //pwm pin, right motor
-#define A_1 6   //Y1, left motor positive
-#define A_2 13  //Y2, left motor negative
+#define EN1 12  //pwm pin, left motor
+#define EN2 13  //pwm pin, right motor
+#define A_1 5   //Y1, left motor positive
+#define A_2 6   //Y2, left motor negative
 #define A_3 19  //Y3, right motor positive
 #define A_4 26  //Y4, right motor negative
 
@@ -52,7 +52,7 @@ int RIGHT_MOTOR = 0;
 //Task monitor trace pins for tasks 1 thru 3
 
 #define T1_PIN 16
-#define T2_PIN 5
+#define T2_PIN 1
 #define T3_PIN 0
 
 //LCD pins. Feel free to change.
