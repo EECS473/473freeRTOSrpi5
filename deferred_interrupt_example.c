@@ -35,7 +35,7 @@ int gpio_isr_init(void){
     return 0;
 }
 
-void cputime(unsigned long numofms) { volatile unsigned long i = 0; for(i=0;i<numofms*1851;i++); }
+void cputime(unsigned long numofms) { volatile unsigned long i = 0; for(i=0;i<numofms*264429;i++); }
 
 void task20(void *pParam) {
 (void) pParam;
