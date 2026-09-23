@@ -40,10 +40,10 @@ int RIGHT_MOTOR = 0;
 //Motor Control 
 #define EN1 12  //pwm pin, left motor
 #define EN2 13  //pwm pin, right motor
-#define A_1 5   //Y1, left motor positive
-#define A_2 6   //Y2, left motor negative
-#define A_3 19  //Y3, right motor positive
-#define A_4 26  //Y4, right motor negative
+#define A_1 5   //H-Bridge input for left motor positive
+#define A_2 6   //H-Bridge input for left motor negative
+#define A_3 19  //H-Bridge input for right motor positive
+#define A_4 26  //H-Bridge input for right motor negative
 
 //Pins for your distance sensor
 #define TRIG 9
